@@ -100,7 +100,6 @@
         const initialHeight = window.innerHeight;
         
         let isUjianSelesai = false; 
-        let sedangMengetik = false; // Penanda apakah siswa sedang aktif di kotak jawaban
 
         if (googleFormLink) {
             if (violations >= 3) {
@@ -126,38 +125,27 @@
             oscillator.stop(audioCtx.currentTime + 1.2);
         }
 
-        // 1. SENSOR PINDAH TAB & MINIMIZE
+        // 1. SENSOR DETEKSI PINDAH TAB & MINIMIZE (SANGAT STABIL)
         document.addEventListener('visibilitychange', function() {
             if (document.hidden && googleFormLink && violations < 3 && !isUjianSelesai) {
                 prosesPelanggaran("Sistem mendeteksi Anda mencoba keluar dari halaman ujian!");
             }
         });
 
-        // 2. SENSOR PENGUNCI JAWABAN (Mencegah Alarm Palsu saat Mengetik)
-        window.addEventListener('message', function(e) {
-            // Deteksi jika ada aktivitas klik/ketik dari iframe Google Form
-            sedangMengetik = true;
-            setTimeout(() => { sedangMengetik = false; }, 1000); // Reset status setelah 1 detik tenang
-        });
-
-        // 3. BARU & PAMUNGKAS: JEBAKAN DETEKSI GOOGLE LENS (PELUNCUR + SPASI)
-        window.addEventListener('blur', function() {
+        // 2. DETEKSI AMAN GOOGLE LENS (MENGGUNAKAN OUT-OF-BOUNDS MOUSE)
+        // Menggantikan fungsi 'blur' agar siswa BEBAS mengeklik & mengetik jawaban tanpa takut alarm palsu.
+        document.addEventListener('mouseleave', function(e) {
             if (googleFormLink && violations < 3 && !isUjianSelesai) {
-                
-                // Jika browser blur/kehilangan fokus DAN siswa TIDAK sedang mengetik jawaban
-                if (!sedangMengetik) {
-                    // Tarik paksa layar ujian kembali ke depan dalam 0.05 detik (Membuat Google Lens mental/menutup)
-                    setTimeout(function() {
-                        window.focus();
-                        document.getElementById('exam-frame').focus();
-                    }, 50);
-                    
-                    prosesPelanggaran("⚠️ DETEKSI SISTEM: Dilarang memicu Google Lens / Asisten Luar!");
-                }
+                // Beri jeda tipis untuk memastikan apakah layar benar-benar ditutupi Google Lens/aplikasi lain
+                setTimeout(function() {
+                    if (!document.hasFocus() || document.activeElement === document.body) {
+                        prosesPelanggaran("⚠️ DETEKSI SISTEM: Dilarang memicu Google Lens, screenshot, atau aplikasi luar!");
+                    }
+                }, 100);
             }
         });
 
-        // 4. SENSOR DETEKSI SPLIT VIEW / RESIZE LAYAR
+        // 3. SENSOR DETEKSI SPLIT VIEW / RESIZE LAYAR
         window.addEventListener('resize', function() {
             if ((initialHeight - window.innerHeight) > (initialHeight * 0.25) && violations < 3 && !isUjianSelesai) {
                 prosesPelanggaran("Split Screen / Pembagian Layar Terdeteksi!");
@@ -204,7 +192,7 @@
             }
         }
 
-        // TOMBOL RAHASIA + PASSWORD UNTUK RESET (tidakjujur)
+        // TOMBOL RAHASIA + PASSWORD UNTUK RESET TU (tidakjujur)
         window.addEventListener('keydown', function(e) {
             if (e.ctrlKey && e.shiftKey && e.keyCode === 81) { 
                 const passwordInput = prompt("SISTEM TERKUNCI.\nPengawas, silakan masukkan password untuk membuka ujian siswa ini:");
@@ -218,16 +206,16 @@
             }
         });
 
-        // LOCK SHORTCUT KEYBOARD GLOBAL
+        // KUNCI TOMBOL KEYBOARD PADA TINGKAT HARDWARE BROWSER
         window.addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.shiftKey && e.keyCode === 81) return; // Pengecualian password TU
+            if (e.ctrlKey && e.shiftKey && e.keyCode === 81) return; // Perkecualian password TU
 
-            // Jika tombol Ctrl, Alt, atau Meta (Peluncur Chromebook) ditekan bersamaan dengan tombol apapun, BLOCK!
+            // Blokir total Ctrl, Alt, F12, dan tombol Peluncur/Meta (91)
             if (e.ctrlKey || e.altKey || e.metaKey || e.keyCode === 91 || e.keyCode == 123) {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                if (e.keyCode !== 16) { // Abaikan tombol Shift tunggal
+                if (e.keyCode !== 16) { // Izinkan tombol Shift tunggal untuk huruf kapital
                     prosesPelanggaran("Penggunaan Shortcut Keyboard / Tombol Peluncur Dilarang!");
                 }
                 return false;
