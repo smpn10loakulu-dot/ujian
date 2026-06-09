@@ -100,6 +100,7 @@
         const initialHeight = window.innerHeight;
         
         let isUjianSelesai = false; 
+        let sedangMengetik = false; // Penanda apakah siswa sedang aktif di kotak jawaban
 
         if (googleFormLink) {
             if (violations >= 3) {
@@ -125,14 +126,38 @@
             oscillator.stop(audioCtx.currentTime + 1.2);
         }
 
-        // 1. SENSOR DETEKSI PINDAH TAB & MINIMIZE
+        // 1. SENSOR PINDAH TAB & MINIMIZE
         document.addEventListener('visibilitychange', function() {
             if (document.hidden && googleFormLink && violations < 3 && !isUjianSelesai) {
-                prosesPelanggaran();
+                prosesPelanggaran("Sistem mendeteksi Anda mencoba keluar dari halaman ujian!");
             }
         });
 
-        // 2. SENSOR DETEKSI SPLIT VIEW / RESIZE LAYAR
+        // 2. SENSOR PENGUNCI JAWABAN (Mencegah Alarm Palsu saat Mengetik)
+        window.addEventListener('message', function(e) {
+            // Deteksi jika ada aktivitas klik/ketik dari iframe Google Form
+            sedangMengetik = true;
+            setTimeout(() => { sedangMengetik = false; }, 1000); // Reset status setelah 1 detik tenang
+        });
+
+        // 3. BARU & PAMUNGKAS: JEBAKAN DETEKSI GOOGLE LENS (PELUNCUR + SPASI)
+        window.addEventListener('blur', function() {
+            if (googleFormLink && violations < 3 && !isUjianSelesai) {
+                
+                // Jika browser blur/kehilangan fokus DAN siswa TIDAK sedang mengetik jawaban
+                if (!sedangMengetik) {
+                    // Tarik paksa layar ujian kembali ke depan dalam 0.05 detik (Membuat Google Lens mental/menutup)
+                    setTimeout(function() {
+                        window.focus();
+                        document.getElementById('exam-frame').focus();
+                    }, 50);
+                    
+                    prosesPelanggaran("⚠️ DETEKSI SISTEM: Dilarang memicu Google Lens / Asisten Luar!");
+                }
+            }
+        });
+
+        // 4. SENSOR DETEKSI SPLIT VIEW / RESIZE LAYAR
         window.addEventListener('resize', function() {
             if ((initialHeight - window.innerHeight) > (initialHeight * 0.25) && violations < 3 && !isUjianSelesai) {
                 prosesPelanggaran("Split Screen / Pembagian Layar Terdeteksi!");
@@ -179,9 +204,8 @@
             }
         }
 
-        // LINGKUNGAN AMAN: BLOKIR TOTAL SELURUH SHORTCUT KEYBOARD KECUALI PASSWORD RESET
+        // TOMBOL RAHASIA + PASSWORD UNTUK RESET (tidakjujur)
         window.addEventListener('keydown', function(e) {
-            // TONGGAK UTAMA: Izinkan shortcut Reset Pengawas (Ctrl + Shift + Q)
             if (e.ctrlKey && e.shiftKey && e.keyCode === 81) { 
                 const passwordInput = prompt("SISTEM TERKUNCI.\nPengawas, silakan masukkan password untuk membuka ujian siswa ini:");
                 if (passwordInput === "tidakjujur") {
@@ -191,24 +215,26 @@
                 } else if (passwordInput !== null) {
                     alert("Password salah! Akses ditolak.");
                 }
-                return;
             }
+        });
 
-            // BLOKIR JALUR UMUM (F12, Ctrl, Alt, Meta/Peluncur)
-            // Jika tombol Ctrl, Alt, atau Meta (Peluncur Chromebook/Windows) ditekan bersamaan dengan tombol apapun, BLOCK!
+        // LOCK SHORTCUT KEYBOARD GLOBAL
+        window.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && e.keyCode === 81) return; // Pengecualian password TU
+
+            // Jika tombol Ctrl, Alt, atau Meta (Peluncur Chromebook) ditekan bersamaan dengan tombol apapun, BLOCK!
             if (e.ctrlKey || e.altKey || e.metaKey || e.keyCode === 91 || e.keyCode == 123) {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                // Jangan bunyikan alarm jika hanya mengetik biasa atau menekan Shift (untuk huruf kapital)
-                if (e.keyCode !== 16) { 
-                    prosesPelanggaran("Penggunaan Shortcut Keyboard Dilarang Keras!");
+                if (e.keyCode !== 16) { // Abaikan tombol Shift tunggal
+                    prosesPelanggaran("Penggunaan Shortcut Keyboard / Tombol Peluncur Dilarang!");
                 }
                 return false;
             }
-        }, true); // Mode 'true' menjamin script memotong sinyal sebelum diproses sistem komputer
+        }, true);
 
-        // ANTI KLIK KANAN TOTAL PADA IFARE BROWSER
+        // ANTI KLIK KANAN TOTAL
         document.addEventListener('contextmenu', event => event.preventDefault());
     </script>
 </body>
