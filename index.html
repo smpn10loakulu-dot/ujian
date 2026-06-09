@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <meta name="google" content="notranslate">
+    <meta http-equiv="Content-Language" content="id" />
+    
+    <title>Portal Ujian Resmi Sekolah</title>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: Arial, sans-serif; background-color: #f0f2f5; }
+        
+        /* Layout Utama */
+        #main-layout { display: flex; flex-direction: column; height: 100%; }
+        #exam-area { flex: 1; position: relative; }
+        iframe { width: 100%; height: 100%; border: none; }
+        
+        /* Bar Bawah untuk Tombol Selesai */
+        #footer-bar { 
+            background: #2c3e50; padding: 10px; text-align: center; 
+            box-shadow: 0 -3px 10px rgba(0,0,0,0.2); z-index: 999;
+        }
+        #btn-finish { 
+            background: #2ecc71; color: white; border: none; padding: 10px 30px; 
+            font-size: 16px; font-weight: bold; border-radius: 5px; cursor: pointer; transition: 0.2s;
+        }
+        #btn-finish:hover { background: #27ae60; transform: scale(1.02); }
+
+        /* Desain Layar Peringatan & Kunci */
+        .screen-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            color: white; text-align: center; padding-top: 15%; z-index: 9999;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #warning-screen { background: rgba(230, 126, 34, 0.98); } 
+        #lock-screen { background: rgba(192, 41, 43, 1); } 
+        
+        h1 { font-size: 36px; margin-bottom: 10px; text-transform: uppercase; }
+        p { font-size: 20px; margin-bottom: 20px; }
+        
+        #error-screen { text-align: center; padding-top: 15%; color: #333; font-family: Arial, sans-serif; }
+        .btn-action { padding: 12px 24px; font-size: 18px; cursor: pointer; background: white; border: none; color: #dc3545; font-weight: bold; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.3s; }
+        .btn-action:hover { background: #f8f9fa; transform: scale(1.05); }
+        
+        /* Proteksi Ukuran Font & Anti Seleksi Teks */
+        * {
+            -webkit-text-size-adjust: none;
+            text-size-adjust: none;
+            -webkit-user-select: none; /* Safari */
+            -ms-user-select: none; /* IE 10+ */
+            user-select: none; /* Standar global anti blokir teks */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main-layout" oncontextmenu="return false;" onselectstart="return false;" ondragstart="return false;">
+        <div id="exam-area">
+            <iframe id="exam-frame" src=""></iframe>
+        </div>
+
+        <div id="footer-bar">
+            <button id="btn-finish" onclick="konfirmasiSelesai()">✓ SAYA SUDAH SELESAI & KIRIM UJIAN</button>
+        </div>
+    </div>
+
+    <div id="warning-screen" class="screen-overlay">
+        <h1>⚠️ PERINGATAN PELANGGARAN! ⚠️</h1>
+        <p>Sistem mendeteksi Anda mencoba keluar dari halaman ujian atau melakukan tindakan terlarang.</p>
+        <p style="font-weight: bold; font-size: 24px; background: rgba(0,0,0,0.2); display: inline-block; padding: 10px 20px; border-radius: 10px;">
+            Jumlah Pelanggaran: <span id="cheat-count">0</span> / 3
+        </p>
+        <br><br>
+        <button class="btn-action" onclick="closeWarning()">SAYA MENGERTI, KEMBALI KE UJIAN</button>
+    </div>
+
+    <div id="lock-screen" class="screen-overlay">
+        <h1>🔒 AKUN UJIAN DIKUNCI TOTAL! 🔒</h1>
+        <p>Anda telah melanggar aturan ujian sebanyak 3 kali atau lebih.</p>
+        <p style="font-size: 24px; font-weight: bold; background: #ffff00; color: #000; padding: 10px; display: inline-block; border-radius: 5px;">
+            SILAKAN MENGHADAP TIM TU / PENGAWAS KELAS UNTUK MEMBUKA KUNCI.
+        </p>
+        <p style="font-size: 14px; color: #ddd; margin-top: 30px;">Kode Status: ERR_CHEAT_LOCKED_V1</p>
+        <br>
+        <button class="btn-action" onclick="window.location.href='https://www.google.com';" style="background: #333; color: white; border: 1px solid #555;">KELUAR & MENYERAH</button>
+    </div>
+
+    <div id="error-screen" style="display: none;">
+        <h2>⚙️ Akses Ujian Ditolak</h2>
+        <p>Format tautan tidak valid atau belum diisi oleh guru.</p>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const googleFormLink = urlParams.get('form');
+        
+        const storageKey = "ujian_status_" + btoa(googleFormLink || "default").substring(0, 15);
+        let violations = parseInt(localStorage.getItem(storageKey)) || 0;
+        const initialHeight = window.innerHeight;
+        
+        let isUjianSelesai = false; 
+
+        if (googleFormLink) {
+            if (violations >= 3) {
+                tampilkanLayarKunciTotal();
+            } else {
+                document.getElementById('exam-frame').src = decodeURIComponent(googleFormLink);
+            }
+        } else {
+            document.getElementById('main-layout').style.display = 'none';
+            document.getElementById('error-screen').style.display = 'block';
+        }
+
+        function bunyikanAlarm() {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 1.2);
+        }
+
+        // 1. SENSOR DETEKSI PINDAH TAB & MINIMIZE
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && googleFormLink && violations < 3 && !isUjianSelesai) {
+                prosesPelanggaran();
+            }
+        });
+
+        // 2. SENSOR DETEKSI SPLIT VIEW / RESIZE LAYAR
+        window.addEventListener('resize', function() {
+            if ((initialHeight - window.innerHeight) > (initialHeight * 0.25) && violations < 3 && !isUjianSelesai) {
+                prosesPelanggaran("Split Screen / Pembagian Layar Terdeteksi!");
+            }
+        });
+
+        function prosesPelanggaran(pesanKustom) {
+            violations++;
+            localStorage.setItem(storageKey, violations); 
+            bunyikanAlarm();
+
+            if (violations >= 3) {
+                tampilkanLayarKunciTotal();
+            } else {
+                document.getElementById('cheat-count').innerText = violations;
+                if(pesanKustom) {
+                    document.getElementById('warning-screen').querySelector('p').innerText = pesanKustom;
+                } else {
+                    document.getElementById('warning-screen').querySelector('p').innerText = "Sistem mendeteksi Anda mencoba keluar dari halaman ujian atau membuka tab lain.";
+                }
+                document.getElementById('warning-screen').style.display = 'block';
+            }
+        }
+
+        function closeWarning() {
+            document.getElementById('warning-screen').style.display = 'none';
+            document.getElementById('exam-frame').focus();
+        }
+
+        function tampilkanLayarKunciTotal() {
+            document.getElementById('exam-frame').src = "about:blank";
+            document.getElementById('warning-screen').style.display = 'none';
+            document.getElementById('lock-screen').style.display = 'block';
+            document.getElementById('footer-bar').style.display = 'none';
+        }
+
+        function konfirmasiSelesai() {
+            const yakin = confirm("Apakah Anda BENAR-BENAR sudah mengklik tombol 'KIRIM/SUBMIT' di dalam Google Form soal?\n\nJika belum, klik 'Cancel' dan kirim dulu jawabannya.");
+            if (yakin) {
+                isUjianSelesai = true; 
+                localStorage.setItem(storageKey, 0); 
+                document.getElementById('footer-bar').innerHTML = "<span style='color:#2ecc71; font-weight:bold; font-size:16px;'>✓ Sistem Keamanan Dimatikan. Anda Bebas Keluar Sekarang.</span>";
+                alert("Sistem pengawasan dinonaktifkan. Anda sekarang aman untuk keluar.");
+            }
+        }
+
+        // LINGKUNGAN AMAN: BLOKIR TOTAL SELURUH SHORTCUT KEYBOARD KECUALI PASSWORD RESET
+        window.addEventListener('keydown', function(e) {
+            // TONGGAK UTAMA: Izinkan shortcut Reset Pengawas (Ctrl + Shift + Q)
+            if (e.ctrlKey && e.shiftKey && e.keyCode === 81) { 
+                const passwordInput = prompt("SISTEM TERKUNCI.\nPengawas, silakan masukkan password untuk membuka ujian siswa ini:");
+                if (passwordInput === "tidakjujur") {
+                    localStorage.setItem(storageKey, 0); 
+                    alert("Kunci berhasil dibuka! Halaman akan dimuat kembali.");
+                    location.reload();
+                } else if (passwordInput !== null) {
+                    alert("Password salah! Akses ditolak.");
+                }
+                return;
+            }
+
+            // BLOKIR JALUR UMUM (F12, Ctrl, Alt, Meta/Peluncur)
+            // Jika tombol Ctrl, Alt, atau Meta (Peluncur Chromebook/Windows) ditekan bersamaan dengan tombol apapun, BLOCK!
+            if (e.ctrlKey || e.altKey || e.metaKey || e.keyCode === 91 || e.keyCode == 123) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Jangan bunyikan alarm jika hanya mengetik biasa atau menekan Shift (untuk huruf kapital)
+                if (e.keyCode !== 16) { 
+                    prosesPelanggaran("Penggunaan Shortcut Keyboard Dilarang Keras!");
+                }
+                return false;
+            }
+        }, true); // Mode 'true' menjamin script memotong sinyal sebelum diproses sistem komputer
+
+        // ANTI KLIK KANAN TOTAL PADA IFARE BROWSER
+        document.addEventListener('contextmenu', event => event.preventDefault());
+    </script>
+</body>
+</html>
