@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <!-- ANTI TRANSLATE: Kunci Google Translate dari sisi Mesin Google & Browser Chrome/Edge -->
     <meta name="google" content="notranslate">
     <meta http-equiv="Content-Language" content="id" />
     
@@ -29,7 +28,7 @@
         }
         #btn-finish:hover { background: #27ae60; transform: scale(1.02); }
 
-        /* TOMBOL RESET ADMIN RAHASIA (Dipojok Kanan Bawah Footer) */
+        /* TOMBOL RESET ADMIN RAHASIA */
         .btn-admin-trigger {
             position: absolute; right: 15px; top: 12px;
             background: #34495e; color: #7f8c8d; border: 1px solid #455a64;
@@ -37,11 +36,10 @@
         }
         .btn-admin-trigger:hover { color: #fff; background: #e74c3c; }
 
-        /* KOTAK DIALOG PASSWORD YANG DILINDUNGI (POPUP MODAL) */
+        /* KOTAK DIALOG PASSWORD */
         #admin-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.75); z-index: 100000; text-align: center;
-            font-family: Arial, sans-serif;
         }
         .modal-content {
             background: white; color: #333; width: 320px; padding: 25px;
@@ -88,21 +86,16 @@
 <body>
 
     <div id="main-layout" oncontextmenu="return false;" onselectstart="return false;" ondragstart="return false;">
-        <!-- Area Jalannya Ujian -->
         <div id="exam-area">
             <iframe id="exam-frame" src=""></iframe>
         </div>
 
-        <!-- Bar Bawah Pengunci Otomatis -->
         <div id="footer-bar">
             <button id="btn-finish" onclick="konfirmasiSelesai()">✓ SAYA SUDAH SELESAI & KIRIM UJIAN</button>
-            
-            <!-- TOMBOL KHUSUS ADMIN PENGAWAS -->
             <button class="btn-admin-trigger" onclick="bukaModalAdmin()">⚙️ Reset Pengawas</button>
         </div>
     </div>
 
-    <!-- KOTAK POPUP INPUT PASSWORD (KARAKTER TERLINDUNGI) -->
     <div id="admin-modal">
         <div class="modal-content">
             <h3>KUNCI AKSES PENGAWAS</h3>
@@ -114,7 +107,6 @@
         </div>
     </div>
 
-    <!-- 1. Layar Peringatan Sementara (Pelanggaran 1 & 2) -->
     <div id="warning-screen" class="screen-overlay">
         <h1>⚠️ PERINGATAN PELANGGARAN! ⚠️</h1>
         <p>Sistem mendeteksi Anda mencoba keluar dari halaman ujian atau melakukan tindakan terlarang.</p>
@@ -125,20 +117,16 @@
         <button class="btn-action" onclick="closeWarning()">SAYA MENGERTI, KEMBALI KE UJIAN</button>
     </div>
 
-    <!-- 2. Layar Kunci Total Permanen (Pelanggaran >= 3) -->
     <div id="lock-screen" class="screen-overlay">
         <h1>🔒 AKUN UJIAN DIKUNCI TOTAL! 🔒</h1>
         <p>Anda telah melanggar aturan ujian sebanyak 3 kali atau lebih.</p>
         <p style="font-size: 24px; font-weight: bold; background: #ffff00; color: #000; padding: 10px; display: inline-block; border-radius: 5px;">
             SILAKAN MENGHADAP TIM TU / PENGAWAS KELAS UNTUK MEMBUKA KUNCI.
         </p>
-        <p style="font-size: 14px; color: #ddd; margin-top: 30px;">Kode Status: ERR_CHEAT_LOCKED_V1</p>
-        <br>
-        <!-- Tombol ini juga dimunculkan di layar kunci untuk memudahkan pengawas bertindak -->
+        <br><br>
         <button class="btn-action" onclick="bukaModalAdmin()" style="background: #ffff00; color: black;">⚙️ INPUT PASSWORD PENGAWAS</button>
     </div>
 
-    <!-- Layar Error Jika Link Kosong -->
     <div id="error-screen" style="display: none;">
         <h2>⚙️ Akses Ujian Ditolak</h2>
         <p>Format tautan tidak valid atau belum diisi oleh guru.</p>
@@ -181,24 +169,26 @@
         // 1. SENSOR DETEKSI PINDAH TAB & MINIMIZE
         document.addEventListener('visibilitychange', function() {
             if (document.hidden && googleFormLink && violations < 3 && !isUjianSelesai) {
-                prosesPelanggaran();
+                prosesPelanggaran("Sistem mendeteksi Anda membuka tab/aplikasi lain!");
             }
         });
 
-        // 2. DETEKSI AMAN GOOGLE LENS (MENGGUNAKAN OUT-OF-BOUNDS MOUSE)
+        // 2. DETEKSI LENS DENGAN SENSITIVITAS RENDAH (Toleransi Jeda 1 Detik)
         document.addEventListener('mouseleave', function(e) {
             if (googleFormLink && violations < 3 && !isUjianSelesai) {
+                // DIKENDORKAN: Beri waktu toleransi 1000 milidetik (1 detik) sebelum menuduh curang
                 setTimeout(function() {
+                    // Jika setelah 1 detik halaman benar-benar tidak disentuh/fokus hilang total
                     if (!document.hasFocus() || document.activeElement === document.body) {
-                        prosesPelanggaran("⚠️ DETEKSI SISTEM: Dilarang memicu Google Lens, screenshot, atau aplikasi luar!");
+                        prosesPelanggaran("⚠️ DETEKSI SISTEM: Layar ujian tertutup oleh aplikasi luar / Google Lens!");
                     }
-                }, 100);
+                }, 1000); 
             }
         });
 
-        // 3. SENSOR DETEKSI SPLIT VIEW / RESIZE LAYAR
+        // 3. SENSOR RESIZE LAYAR (Toleransi Keyboard Virtual Diperlonggar ke 35%)
         window.addEventListener('resize', function() {
-            if ((initialHeight - window.innerHeight) > (initialHeight * 0.25) && violations < 3 && !isUjianSelesai) {
+            if ((initialHeight - window.innerHeight) > (initialHeight * 0.35) && violations < 3 && !isUjianSelesai) {
                 prosesPelanggaran("Split Screen / Pembagian Layar Terdeteksi!");
             }
         });
@@ -214,8 +204,6 @@
                 document.getElementById('cheat-count').innerText = violations;
                 if(pesanKustom) {
                     document.getElementById('warning-screen').querySelector('p').innerText = pesanKustom;
-                } else {
-                    document.getElementById('warning-screen').querySelector('p').innerText = "Sistem mendeteksi Anda mencoba keluar dari halaman ujian atau membuka tab lain.";
                 }
                 document.getElementById('warning-screen').style.display = 'block';
             }
@@ -230,13 +218,11 @@
             document.getElementById('exam-frame').src = "about:blank";
             document.getElementById('warning-screen').style.display = 'none';
             document.getElementById('lock-screen').style.display = 'block';
-            if (document.getElementById('footer-bar')) {
-                document.getElementById('footer-bar').style.display = 'none';
-            }
+            if (document.getElementById('footer-bar')) document.getElementById('footer-bar').style.display = 'none';
         }
 
         function konfirmasiSelesai() {
-            const yakin = confirm("Apakah Anda BENAR-BENAR sudah mengklik tombol 'KIRIM/SUBMIT' di dalam Google Form soal?\n\nJika belum, klik 'Cancel' dan kirim dulu jawabannya.");
+            const yakin = confirm("Apakah Anda BENAR-BENAR sudah mengklik tombol 'KIRIM/SUBMIT' di dalam Google Form?\n\nJika belum, kirim dulu jawabannya.");
             if (yakin) {
                 isUjianSelesai = true; 
                 localStorage.setItem(storageKey, 0); 
@@ -245,7 +231,7 @@
             }
         }
 
-        /* --- MANAJEMEN RESET PASSWORD ADMIN (MODAL VISUAL) --- */
+        /* ADMIN PASSWORD MODAL */
         function bukaModalAdmin() {
             document.getElementById('admin-modal').style.display = 'block';
             document.getElementById('password-field').focus();
@@ -254,7 +240,6 @@
         function tutupModalAdmin() {
             document.getElementById('admin-modal').style.display = 'none';
             document.getElementById('password-field').value = '';
-            // Kembalikan fokus ke soal
             document.getElementById('exam-frame').focus();
         }
 
@@ -265,34 +250,29 @@
                 alert("Kunci berhasil dibuka! Halaman ujian dimuat ulang.");
                 location.reload();
             } else {
-                alert("Password Salah! Akses ditolak.");
+                alert("Password Salah!");
                 document.getElementById('password-field').value = '';
                 document.getElementById('password-field').focus();
             }
         }
 
-        // Izinkan admin menekan tombol 'Enter' saat mengetik password di kotak dialog
         document.getElementById('password-field').addEventListener('keydown', function(e) {
-            if (e.keyCode === 13) { // 13 adalah tombol Enter
-                cekPasswordAdmin();
-            }
+            if (e.keyCode === 13) cekPasswordAdmin();
         });
 
-        // KUNCI TOMBOL KEYBOARD PADA TINGKAT HARDWARE BROWSER (Abaikan Shortcut Lama)
+        // KUNCI KEYBOARD TINGKAT HARDWARE BROWSER
         window.addEventListener('keydown', function(e) {
-            // Blokir total Ctrl, Alt, F12, dan tombol Peluncur/Meta (91)
             if (e.ctrlKey || e.altKey || e.metaKey || e.keyCode === 91 || e.keyCode == 123) {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                if (e.keyCode !== 16) { // Izinkan tombol Shift tunggal untuk huruf kapital
-                    prosesPelanggaran("Penggunaan Shortcut Keyboard / Tombol Peluncur Dilarang!");
+                if (e.keyCode !== 16) { 
+                    prosesPelanggaran("Shortcut Keyboard / Tombol Peluncur Dilarang!");
                 }
                 return false;
             }
         }, true);
 
-        // ANTI KLIK KANAN TOTAL
         document.addEventListener('contextmenu', event => event.preventDefault());
     </script>
 </body>
